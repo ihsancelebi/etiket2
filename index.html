@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THE ICONE - Etiket ve Barkod Oluşturucu</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+    }
+    .container, .preview-container {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      flex: 1;
+      max-width: 400px;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 24px;
+    }
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    .btn {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+    }
+    .preview-btn { background: linear-gradient(45deg, #3498db, #2980b9); margin-bottom: 10px; }
+    .print-btn   { background: linear-gradient(45deg, #27ae60, #2ecc71); }
+
+    /* --- Etiket kutusu (sınır çizgisi yok) --- */
+    .label-preview {
+      position: relative;
+      width: 113.39px;
+      height: 226.77px;
+      background: white;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* yalnızca alttan 20mm yukarıda kesim çizgisi */
+    .label-preview::after {
+      content: "";
+      position: absolute;
+      bottom: 20mm;
+      left: 0;
+      width: 100%;
+      border-top: 1px dashed #000;
+    }
+    .label-content {
+      width: 100%;
+      padding: 4mm 5px 5px;    /* logo üstten 4mm içerde */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .brand-section {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .logo-image {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+    .length-section { margin: 5px 0; }
+    .length-section span {
+      display: inline-block;
+      font-weight: bold;
+    }
+    .product-info { margin: 5px 0; }
+    #renkText, #detayText {
+      display: inline-block;
+      font-weight: bold;
+    }
+    #detayText {
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    /* barkod çubukları kesim çizgisinin üstünde olacak */
+    .barcode-section {
+      position: absolute;
+      bottom: 21mm;            /* çizginin 1mm üstünde */
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    .barcode-canvas {
+      max-width: 90%;
+      height: 50px;            /* Barkod yüksekliğini 50px olarak güncelledik */
+      margin: 0 auto;
+      display: block;
+    }
+
+    .preview-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    /* --- Yazdırma ayarları --- */
+    @media print {
+      body { background: white; margin:0; padding:0; }
+      .container, .preview-container { display: none; }
+      .label-preview-print-wrapper {
+        display: block !important;
+        width: 40mm; height: 80mm;
+        page-break-after: always;
+        margin:0; padding:0;
+      }
+      .label-preview {
+        width: 40mm; height: 80mm;
+        background: white;
+        margin:0; padding:0;
+      }
+      .label-preview::after { border-color:#000; }
+      .label-content { padding:4mm 1.5mm 1.5mm; }
+      #detayText { font-size:4mm; }
+      .barcode-canvas {
+        max-width: 90%;
+        height: 16mm;         /* yazdırmada 2× uzun */
+      }
+    }
+
+    /* --- Mobil uyumluluk --- */
+    @media (max-width: 768px) {
+      body { flex-direction: column; align-items: center; }
+      .container, .preview-container { max-width:100%; width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>THE ICONE</h1>
+    <form id="labelForm">
+      <div class="form-group">
+        <label for="renk">Renk:</label>
+        <input type="text" id="renk" value="Doğal" placeholder="Örn: Koyu Kahve" required>
+      </div>
+      <div class="form-group">
+        <label for="uzunluk">Uzunluk (cm):</label>
+        <input type="number" id="uzunluk" min="30" max="100" step="5" value="70" required>
+      </div>
+      <div class="form-group">
+        <label for="gramaj">Gramaj (gr):</label>
+        <input type="number" id="gramaj" min="0.1" max="2" step="0.1" value="0.8" required>
+      </div>
+      <div class="form-group">
+        <label for="fiyat">Fiyat (TL):</label>
+        <input type="number" id="fiyat" min="0" step="0.01" value="110" required>
+      </div>
+      <div class="form-group">
+        <label for="stokNo">Stok No (Barkod için):</label>
+        <input type="text" id="stokNo" placeholder="Otomatik oluşturulacak">
+      </div>
+    </form>
+    <button class="btn preview-btn" onclick="updatePreview()">Önizleme Güncelle</button>
+    <button class="btn print-btn"   onclick="printLabel()">Yazdır</button>
+  </div>
+
+  <div class="preview-container">
+    <h1>Önizleme</h1>
+    <div class="label-preview" id="labelPreviewHost">
+      <div class="label-content">
+        <div class="brand-section">
+          <img id="logoImage" class="logo-image" src="logo.png" alt="THE ICONE Logo">
+        </div>
+        <div class="length-section">
+          <span id="uzunlukText">70 cm</span>
+        </div>
+        <div class="product-info">
+          <span id="renkText">Doğal</span><br>
+          <span id="detayText">0.8 gr – 110 TL</span>
+        </div>
+        <div class="barcode-section">
+          <svg class="barcode-canvas" id="barcodeCanvas"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="label-preview-print-wrapper" style="display:none;"></div>
+
+  <script>
+    let labelCounter = 1;
+    const elements = ['renk','uzunluk','gramaj','fiyat','stokNo'];
+
+    function generateStockNo(){
+      const d = new Date(),
+            y = d.getFullYear().toString().slice(-2),
+            m = String(d.getMonth()+1).padStart(2,'0'),
+            day = String(d.getDate()).padStart(2,'0'),
+            cnt = String(labelCounter++).padStart(3,'0');
+      return `IC${y}${m}${day}${cnt}`;
+    }
+
+    function updatePreview(){
+      const renk   = document.getElementById('renk').value.trim(),
+            uzun   = document.getElementById('uzunluk').value.trim(),
+            gram   = document.getElementById('gramaj').value.trim(),
+            fiyat  = document.getElementById('fiyat').value.trim(),
+            stokIn = document.getElementById('stokNo');
+      if(!stokIn.value.trim()) stokIn.value = generateStockNo();
+
+      document.getElementById('uzunlukText').textContent = `${uzun||'70'} cm`;
+      document.getElementById('renkText').textContent    = renk||'Doğal';
+      document.getElementById('detayText').textContent   = `${gram||'0.8'} gr – ${fiyat||'110'} TL`;
+
+      const bc = document.getElementById('barcodeCanvas'),
+            no = stokIn.value.trim();
+      if(bc && no){
+        bc.innerHTML = '';
+        try {
+          JsBarcode(bc, no, {
+            format: "CODE128",
+            width: 2,
+            height: 50, // Barkod yüksekliğini 50px olarak güncelledik
+            displayValue: true,
+            fontSize: 12,
+            textMargin: 8,
+            margin: 2,
+            background: "#fff",
+            lineColor: "#000"
+          });
+        } catch(e){
+          bc.innerHTML = '<rect width="80" height="20" fill="#000" x="10" y="5"/>';
+        }
+      }
+    }
+
+    function printLabel(){
+      updatePreview();
+      const wrap = document.querySelector('.label-preview-print-wrapper'),
+            orig = document.getElementById('labelPreviewHost').cloneNode(true);
+      wrap.innerHTML = '';
+      wrap.appendChild(orig);
+
+      const pc = wrap.querySelector('.barcode-canvas'),
+            no = document.getElementById('stokNo').value.trim();
+      if(pc && no){
+        try {
+          JsBarcode(pc, no, {
+            format: "CODE128",
+            width: 2,
+            height: 50, // Barkod yüksekliğini 50px olarak güncelledik
+            displayValue: true,
+            fontSize: 12,
+            textMargin: 8,
+            margin: 2,
+            background: "#fff",
+            lineColor: "#000"
+          });
+        } catch(e){}
+        setTimeout(() => window.print(), 200);
+      } else {
+        setTimeout(() => window.print(), 200);
+      }
+    }
+
+    window.addEventListener('load', () => {
+      elements.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('input', updatePreview);
+      });
+      setTimeout(updatePreview, 100);
+    });
+
+    if (typeof JsBarcode === 'undefined') {
+      // Custom modal for alert
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '50%';
+      modal.style.left = '50%';
+      modal.style.transform = 'translate(-50%, -50%)';
+      modal.style.backgroundColor = 'white';
+      modal.style.padding = '20px';
+      modal.style.borderRadius = '10px';
+      modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+      modal.style.zIndex = '1000';
+      modal.textContent = 'Barkod kütüphanesi yüklenemedi.';
+
+      const closeButton = document.createElement('button');
+      closeButton.textContent = 'Kapat';
+      closeButton.style.marginTop = '10px';
+      closeButton.style.padding = '8px 15px';
+      closeButton.style.backgroundColor = '#667eea';
+      closeButton.style.color = 'white';
+      closeButton.style.border = 'none';
+      closeButton.style.borderRadius = '5px';
+      closeButton.style.cursor = 'pointer';
+      closeButton.onclick = () => document.body.removeChild(modal);
+
+      modal.appendChild(closeButton);
+      document.body.appendChild(modal);
+    }
+  </script>
+</body>
+</html>
