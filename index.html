@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>THE ICONE - Etiket ve Barkod Oluşturucu</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -29,6 +30,13 @@
       text-align: center;
       margin-bottom: 30px;
       font-size: 24px;
+    }
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 18px;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
     }
     .form-group { margin-bottom: 20px; }
     label {
@@ -71,6 +79,110 @@
     }
     .preview-btn { background: linear-gradient(45deg, #3498db, #2980b9); margin-bottom: 10px; }
     .print-btn   { background: linear-gradient(45deg, #27ae60, #2ecc71); }
+    .bulk-btn    { background: linear-gradient(45deg, #e74c3c, #c0392b); }
+    .download-btn { background: linear-gradient(45deg, #f39c12, #e67e22); }
+
+    /* File input styling */
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .file-input {
+      position: absolute;
+      left: -9999px;
+    }
+    .file-input-label {
+      background: linear-gradient(45deg, #9b59b6, #8e44ad);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      width: 100%;
+      display: block;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    .file-input-label:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(155,89,182,0.4);
+    }
+
+    /* Progress bar */
+    .progress-container {
+      width: 100%;
+      background: #e1e5e9;
+      border-radius: 8px;
+      margin: 15px 0;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar {
+      height: 20px;
+      background: linear-gradient(45deg, #27ae60, #2ecc71);
+      width: 0%;
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    /* Status messages */
+    .status-message {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 14px;
+      display: none;
+    }
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    /* Data preview table */
+    .data-preview {
+      margin: 15px 0;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      display: none;
+    }
+    .data-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .data-preview th,
+    .data-preview td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #e1e5e9;
+    }
+    .data-preview th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
 
     /* --- Etiket kutusu (sınır çizgisi yok) --- */
     .label-preview {
@@ -137,7 +249,7 @@
     }
     .barcode-canvas {
       max-width: 90%;
-      height: 50px;            /* Barkod yüksekliğini 50px olarak güncelledik */
+      height: 60px;            /* çubukları 2× uzun */
       margin: 0 auto;
       display: block;
     }
@@ -171,6 +283,17 @@
         max-width: 90%;
         height: 16mm;         /* yazdırmada 2× uzun */
       }
+      .bulk-print-labels {
+        display: block !important;
+      }
+      .bulk-print-labels .label-preview {
+        width: 40mm; 
+        height: 80mm;
+        background: white;
+        margin: 0; 
+        padding: 0;
+        page-break-after: always;
+      }
     }
 
     /* --- Mobil uyumluluk --- */
@@ -178,35 +301,108 @@
       body { flex-direction: column; align-items: center; }
       .container, .preview-container { max-width:100%; width:100%; }
     }
+
+    .bulk-print-labels {
+      display: none;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e1e5e9;
+    }
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>THE ICONE</h1>
-    <form id="labelForm">
+    
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('single')">Tekil Etiket</button>
+      <button class="tab" onclick="switchTab('bulk')">Toplu Etiket</button>
+    </div>
+
+    <!-- Tekil Etiket Sekmesi -->
+    <div id="singleTab" class="tab-content active">
+      <form id="labelForm">
+        <div class="form-group">
+          <label for="renk">Renk:</label>
+          <input type="text" id="renk" value="Doğal" placeholder="Örn: Koyu Kahve" required>
+        </div>
+        <div class="form-group">
+          <label for="uzunluk">Uzunluk (cm):</label>
+          <input type="number" id="uzunluk" min="30" max="100" step="5" value="70" required>
+        </div>
+        <div class="form-group">
+          <label for="gramaj">Gramaj (gr):</label>
+          <input type="number" id="gramaj" min="0.1" max="2" step="0.1" value="0.8" required>
+        </div>
+        <div class="form-group">
+          <label for="fiyat">Fiyat (TL):</label>
+          <input type="number" id="fiyat" min="0" step="0.01" value="110" required>
+        </div>
+        <div class="form-group">
+          <label for="stokNo">Stok No (Barkod için):</label>
+          <input type="text" id="stokNo" placeholder="Otomatik oluşturulacak">
+        </div>
+      </form>
+      <button class="btn preview-btn" onclick="updatePreview()">Önizleme Güncelle</button>
+      <button class="btn print-btn" onclick="printLabel()">Yazdır</button>
+    </div>
+
+    <!-- Toplu Etiket Sekmesi -->
+    <div id="bulkTab" class="tab-content">
+      <h2>Excel Dosyasından Toplu Etiket</h2>
+      
       <div class="form-group">
-        <label for="renk">Renk:</label>
-        <input type="text" id="renk" value="Doğal" placeholder="Örn: Koyu Kahve" required>
+        <label>Excel Şablonunu İndir:</label>
+        <button class="btn download-btn" onclick="downloadTemplate()">Şablon İndir (.xlsx)</button>
       </div>
+
       <div class="form-group">
-        <label for="uzunluk">Uzunluk (cm):</label>
-        <input type="number" id="uzunluk" min="30" max="100" step="5" value="70" required>
+        <label for="excelFile">Excel Dosyası Yükle:</label>
+        <div class="file-input-wrapper">
+          <input type="file" id="excelFile" class="file-input" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
+          <label for="excelFile" class="file-input-label">📁 Excel Dosyası Seç</label>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="gramaj">Gramaj (gr):</label>
-        <input type="number" id="gramaj" min="0.1" max="2" step="0.1" value="0.8" required>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar">0%</div>
       </div>
-      <div class="form-group">
-        <label for="fiyat">Fiyat (TL):</label>
-        <input type="number" id="fiyat" min="0" step="0.01" value="110" required>
+
+      <div class="status-message" id="statusMessage"></div>
+
+      <div class="data-preview" id="dataPreview">
+        <table id="previewTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <div class="form-group">
-        <label for="stokNo">Stok No (Barkod için):</label>
-        <input type="text" id="stokNo" placeholder="Otomatik oluşturulacak">
-      </div>
-    </form>
-    <button class="btn preview-btn" onclick="updatePreview()">Önizleme Güncelle</button>
-    <button class="btn print-btn"   onclick="printLabel()">Yazdır</button>
+
+      <button class="btn bulk-btn" id="bulkPrintBtn" onclick="bulkPrint()" style="display:none;">Toplu Yazdır</button>
+    </div>
   </div>
 
   <div class="preview-container">
@@ -214,7 +410,7 @@
     <div class="label-preview" id="labelPreviewHost">
       <div class="label-content">
         <div class="brand-section">
-          <img id="logoImage" class="logo-image" src="logo.png" alt="THE ICONE Logo">
+          <img id="logoImage" class="logo-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjUwIiB2aWV3Qm94PSIwIDAgMTAwIDUwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8dGV4dCB4PSI1MCIgeT0iMzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMzMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlRIRSBJQ09ORTU8L3RleHQ+Cjwvc3ZnPgo=" alt="THE ICONE Logo">
         </div>
         <div class="length-section">
           <span id="uzunlukText">70 cm</span>
@@ -231,10 +427,22 @@
   </div>
 
   <div class="label-preview-print-wrapper" style="display:none;"></div>
+  <div class="bulk-print-labels" id="bulkPrintLabels"></div>
 
   <script>
     let labelCounter = 1;
+    let bulkData = [];
     const elements = ['renk','uzunluk','gramaj','fiyat','stokNo'];
+
+    function switchTab(tabName) {
+      // Tab butonlarını güncelle
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      
+      // Tab içeriklerini güncelle
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabName + 'Tab').classList.add('active');
+    }
 
     function generateStockNo(){
       const d = new Date(),
@@ -264,11 +472,11 @@
         try {
           JsBarcode(bc, no, {
             format: "CODE128",
-            width: 2,
-            height: 50, // Barkod yüksekliğini 50px olarak güncelledik
+            width: 1.5,
+            height: 60,
             displayValue: true,
-            fontSize: 12,
-            textMargin: 8,
+            fontSize: 10,
+            textMargin: 5,
             margin: 2,
             background: "#fff",
             lineColor: "#000"
@@ -292,11 +500,11 @@
         try {
           JsBarcode(pc, no, {
             format: "CODE128",
-            width: 2,
-            height: 50, // Barkod yüksekliğini 50px olarak güncelledik
+            width: 1.5,
+            height: 60,
             displayValue: true,
-            fontSize: 12,
-            textMargin: 8,
+            fontSize: 10,
+            textMargin: 5,
             margin: 2,
             background: "#fff",
             lineColor: "#000"
@@ -308,6 +516,211 @@
       }
     }
 
+    function downloadTemplate() {
+      const wb = XLSX.utils.book_new();
+      const wsData = [
+        ['Renk', 'Uzunluk', 'Gramaj', 'Fiyat', 'StokNo'],
+        ['Doğal', 70, 0.8, 110, ''],
+        ['Koyu Kahve', 65, 0.9, 120, ''],
+        ['Açık Sarı', 75, 0.7, 105, '']
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Etiketler');
+      XLSX.writeFile(wb, 'etiket_sablonu.xlsx');
+    }
+
+    function showStatus(message, type = 'info') {
+      const statusEl = document.getElementById('statusMessage');
+      statusEl.textContent = message;
+      statusEl.className = `status-message status-${type}`;
+      statusEl.style.display = 'block';
+      
+      if (type !== 'error') {
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    function updateProgress(percent) {
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      
+      if (percent > 0) {
+        progressContainer.style.display = 'block';
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = Math.round(percent) + '%';
+      } else {
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      showStatus('Dosya okunuyor...', 'info');
+      updateProgress(20);
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          updateProgress(50);
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+          
+          updateProgress(80);
+          
+          if (jsonData.length < 2) {
+            throw new Error('Excel dosyasında yeterli veri bulunamadı.');
+          }
+
+          const headers = jsonData[0];
+          const rows = jsonData.slice(1);
+          
+          // Başlıkları kontrol et
+          const requiredHeaders = ['Renk', 'Uzunluk', 'Gramaj', 'Fiyat'];
+          const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+          
+          if (missingHeaders.length > 0) {
+            throw new Error(`Eksik sütunlar: ${missingHeaders.join(', ')}`);
+          }
+
+          bulkData = rows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+              obj[header] = row[index] || '';
+            });
+            // Stok numarası yoksa otomatik oluştur
+            if (!obj.StokNo || obj.StokNo === '') {
+              obj.StokNo = generateStockNo();
+            }
+            return obj;
+          }).filter(row => row.Renk && row.Uzunluk && row.Gramaj && row.Fiyat);
+
+          updateProgress(100);
+          
+          if (bulkData.length === 0) {
+            throw new Error('Geçerli veri satırı bulunamadı.');
+          }
+
+          displayDataPreview(bulkData);
+          document.getElementById('bulkPrintBtn').style.display = 'block';
+          showStatus(`${bulkData.length} etiket başarıyla yüklendi!`, 'success');
+          
+          setTimeout(() => updateProgress(0), 2000);
+
+        } catch (error) {
+          updateProgress(0);
+          showStatus('Hata: ' + error.message, 'error');
+          document.getElementById('bulkPrintBtn').style.display = 'none';
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function displayDataPreview(data) {
+      const previewDiv = document.getElementById('dataPreview');
+      const table = document.getElementById('previewTable');
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+
+      if (data.length === 0) {
+        previewDiv.style.display = 'none';
+        return;
+      }
+
+      // Başlıkları oluştur
+      const headers = Object.keys(data[0]);
+      thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+      // İlk 5 satırı göster
+      const displayData = data.slice(0, 5);
+      tbody.innerHTML = displayData.map(row => 
+        '<tr>' + headers.map(h => `<td>${row[h] || ''}</td>`).join('') + '</tr>'
+      ).join('');
+
+      if (data.length > 5) {
+        tbody.innerHTML += `<tr><td colspan="${headers.length}" style="text-align:center;font-style:italic;">... ve ${data.length - 5} satır daha</td></tr>`;
+      }
+
+      previewDiv.style.display = 'block';
+    }
+
+    function createLabelElement(data) {
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'label-preview';
+      labelDiv.innerHTML = `
+        <div class="label-content">
+          <div class="brand-section">
+            <img class="logo-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjUwIiB2aWV3Qm94PSIwIDAgMTAwIDUwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8dGV4dCB4PSI1MCIgeT0iMzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMzMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlRIRSBJQ09ORTU8L3RleHQ+Cjwvc3ZnPgo=" alt="THE ICONE Logo">
+          </div>
+          <div class="length-section">
+            <span>${data.Uzunluk} cm</span>
+          </div>
+          <div class="product-info">
+            <span>${data.Renk}</span><br>
+            <span>${data.Gramaj} gr – ${data.Fiyat} TL</span>
+          </div>
+          <div class="barcode-section">
+            <svg class="barcode-canvas"></svg>
+          </div>
+        </div>
+      `;
+
+      // Barkod oluştur
+      const barcodeEl = labelDiv.querySelector('.barcode-canvas');
+      if (data.StokNo) {
+        try {
+          JsBarcode(barcodeEl, data.StokNo, {
+            format: "CODE128",
+            width: 1.5,
+            height: 60,
+            displayValue: true,
+            fontSize: 10,
+            textMargin: 5,
+            margin: 2,
+            background: "#fff",
+            lineColor: "#000"
+          });
+        } catch(e) {
+          barcodeEl.innerHTML = '<rect width="80" height="20" fill="#000" x="10" y="5"/>';
+        }
+      }
+
+      return labelDiv;
+    }
+
+    function bulkPrint() {
+      if (bulkData.length === 0) {
+        showStatus('Yazdırılacak veri bulunamadı.', 'error');
+        return;
+      }
+
+      showStatus('Yazdırma hazırlanıyor...', 'info');
+      
+      const bulkPrintContainer = document.getElementById('bulkPrintLabels');
+      bulkPrintContainer.innerHTML = '';
+
+      bulkData.forEach((data, index) => {
+        updateProgress((index / bulkData.length) * 100);
+        const labelElement = createLabelElement(data);
+        bulkPrintContainer.appendChild(labelElement);
+      });
+
+      updateProgress(100);
+      showStatus(`${bulkData.length} etiket yazdırma için hazırlandı.`, 'success');
+      
+      setTimeout(() => {
+        updateProgress(0);
+        window.print();
+      }, 1000);
+    }
+
     window.addEventListener('load', () => {
       elements.forEach(id => {
         const el = document.getElementById(id);
@@ -317,32 +730,11 @@
     });
 
     if (typeof JsBarcode === 'undefined') {
-      // Custom modal for alert
-      const modal = document.createElement('div');
-      modal.style.position = 'fixed';
-      modal.style.top = '50%';
-      modal.style.left = '50%';
-      modal.style.transform = 'translate(-50%, -50%)';
-      modal.style.backgroundColor = 'white';
-      modal.style.padding = '20px';
-      modal.style.borderRadius = '10px';
-      modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-      modal.style.zIndex = '1000';
-      modal.textContent = 'Barkod kütüphanesi yüklenemedi.';
+      alert('Barkod kütüphanesi yüklenemedi.');
+    }
 
-      const closeButton = document.createElement('button');
-      closeButton.textContent = 'Kapat';
-      closeButton.style.marginTop = '10px';
-      closeButton.style.padding = '8px 15px';
-      closeButton.style.backgroundColor = '#667eea';
-      closeButton.style.color = 'white';
-      closeButton.style.border = 'none';
-      closeButton.style.borderRadius = '5px';
-      closeButton.style.cursor = 'pointer';
-      closeButton.onclick = () => document.body.removeChild(modal);
-
-      modal.appendChild(closeButton);
-      document.body.appendChild(modal);
+    if (typeof XLSX === 'undefined') {
+      alert('Excel kütüphanesi yüklenemedi.');
     }
   </script>
 </body>
